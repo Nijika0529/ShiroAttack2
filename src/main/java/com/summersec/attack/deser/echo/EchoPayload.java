@@ -10,6 +10,8 @@ import javassist.CtClass;
 
 public interface EchoPayload<T> {
     CtClass genPayload(ClassPool paramClassPool) throws Exception;
+    CtClass genPayload(ClassPool paramClassPool, String bytestr) throws Exception;
+    CtClass genPayload(ClassPool paramClassPool, int num, String codes) throws Exception;
 
     public static class Utils
     {

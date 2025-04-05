@@ -4,6 +4,8 @@ import com.summersec.attack.Encrypt.KeyGenerator;
 import com.summersec.attack.core.AttackService;
 import com.summersec.attack.entity.ControllersFactory;
 import com.summersec.attack.utils.Utils;
+
+import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
@@ -36,8 +38,13 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Window;
+import javassist.CannotCompileException;
+import javassist.NotFoundException;
 
 public class MainController {
+    @FXML
+    public CheckBox chunkedCheckBox;
+    public static boolean chunkType;
     @FXML
     private ResourceBundle resources;
     @FXML
@@ -103,12 +110,17 @@ public class MainController {
     }
 
     @FXML
-    void injectShellBtn(ActionEvent event) {
+    void injectShellBtn(ActionEvent event) throws NotFoundException, IOException, CannotCompileException, InterruptedException {
         String memShellType = (String)this.memShellOpt.getValue();
         String shellPass = this.shellPassText.getText();
         String shellPath = this.shellPathText.getText();
+        if (this.chunkedCheckBox.isSelected()) {
+            chunkType = true;
+        } else {
+            chunkType = false;
+        }
         if (AttackService.gadget != null ) {
-            this.attackService.injectMem(memShellType, shellPass, shellPath);
+            this.attackService.injectMem(memShellType, shellPass, shellPath, chunkType);
         } else {
             this.InjOutputArea.appendText(Utils.log("请先获取密钥和构造链"));
         }

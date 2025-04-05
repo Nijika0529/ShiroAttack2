@@ -12,7 +12,7 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
-      <module name="shiro_attack" options="-bootclasspath D:/java/jre/lib/rt.jar;D:/java/jre/lib/jce.jar" />
+      <module name="shiro_attack" options="-bootclasspath $PROJECT_DIR$/../../../Major/Java/jdk-8u65/jre/lib/rt.jar;$PROJECT_DIR$/../../../Major/Java/jdk-8u65/jre/lib/jce.jar" />
     </option>
   </component>
 </project>

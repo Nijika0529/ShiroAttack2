@@ -67,12 +67,13 @@
                     <target>8</target>
                     <encoding>UTF-8</encoding>
                     <compilerArguments>
-                        <bootclasspath>D:/java/jre/lib/rt.jar;D:/java/jre/lib/jce.jar</bootclasspath>
+                        <bootclasspath>D:/Major/Java/jdk-8u65/jre/lib/rt.jar;D:/Major/Java/jdk-8u65/jre/lib/jce.jar</bootclasspath>
                     </compilerArguments>
                 </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.5.0</version>
                 <configuration>
                     <finalName>${project.artifactId}-${project.version}-all</finalName>
                     <appendAssemblyId>false</appendAssemblyId>
@@ -81,7 +82,7 @@
                             <mainClass>com.summersec.attack.UI.Main</mainClass>
                         </manifest>
                     </archive>
-                    <descriptor>assembly.xml</descriptor>
+                    <descriptors>assembly.xml</descriptors>
                 </configuration>
                 <executions>
                     <execution>
@@ -99,10 +100,7 @@
                 <directory>src/main/resources</directory>
             </resource>
         </resources>
-
     </build>
-
-
     <dependencies>
         <dependency>
             <groupId>org.apache.commons</groupId>
